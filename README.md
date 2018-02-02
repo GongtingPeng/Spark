@@ -1,7 +1,7 @@
 # **Yelp Review Sentiment Analysis using Distributed Computing**
 
 
-*The project was completed with the group of Nicha Ruchirawat, Tina GongTing Peng and Maise Ly*
+*The project was contributed by Nicha Ruchirawat, Maise Ly and GongTing Peng*
 
 ## Problem Statement
 Classifiy Yelp reviews as positive / negative and identify most relevant phrases based on the textual content using bags of words, tf-idf, SVM and Regularized Logistic Regression.
@@ -9,7 +9,11 @@ Classifiy Yelp reviews as positive / negative and identify most relevant phrases
 ## Data Pipeline
 The model will be implemented on a YARN cluster of four nodes (three workers and one master). The YARN cluster was set up using AWS EMR, each machine has 8 cores and 15GB memory.
 
+![](./img/dc_pipeline.png)
+
 The original dataset is obtained via the [Yelp Data Challenge](https://www.yelp.com/dataset/challenge), from which we only used the review json file of 3.82GB. The data is stored in an Amazon S3 bucket before it was imported to the mongoDB on the EC2 instance.   
+
+![](./img/dc_mongo.png)
 
 The data was then loaded into Spark and the model was implemented using Spark MLib and Spark SQL.
 
@@ -21,6 +25,23 @@ We loaded the data into Spark via the use of Spark-Mongo-Connector packages. Not
 # load review raw data
 review = spark.read.format("com.mongodb.spark.sql.DefaultSource")\
                 .option("uri", "mongodb://127.0.0.1:27017/yelp.review").load()
+```
+
+```python
+review.printSchema()
+
+root
+ |-- _id: struct (nullable = true)
+ |    |-- oid: string (nullable = true)
+ |-- business_id: string (nullable = true)
+ |-- cool: integer (nullable = true)
+ |-- date: string (nullable = true)
+ |-- funny: integer (nullable = true)
+ |-- review_id: string (nullable = true)
+ |-- stars: integer (nullable = true)
+ |-- text: string (nullable = true)
+ |-- useful: integer (nullable = true)
+ |-- user_id: string (nullable = true)
 ```
 
 Using SparkSQL, basic data exploratory data analysis could be done. The majority of the reviews focuses on the positive sides -- intuitively, people tend to leave reviews when they feel great about their experience. Contradictory, the number of extremely negative reviews (1 star) also overwhelm the number of neutral reviews (2 or 3 stars).
@@ -201,6 +222,8 @@ F1 score: 0.8732
 
 Using the same training data, we instead applied a regularized logistic regression. SVM focuses on finding the separating plane that maximizes the distance of the closest points to the margin, whereas Logistic Regression maximizing the probability of the data (i.e. the further it lies away from the hyperplane the better).^[1]
 
+In addition to a normal logistic regression, we used a linear combination of L1 and L2 regularization, i.e. Elastic Net, to prevent the model from overfitting. Since LASSO (L1) tend to select only one significant coefficients the other, EN adds in the penalty from Ridge Regression (L2) that helps to overcome the disadvantages.
+
 ^[1] http://www.cs.toronto.edu/~kswersky/wp-content/uploads/svm_vs_lr.pdf
 
 ```python
@@ -367,7 +390,16 @@ F1 score: 0.8797
 
 Below is the summarized result of all the models, as we can see the SVM model that used unigram and top 40 trigrams from another SVM model is the best model based on the F1 score.
 
+![](./img/dc_result.png)
+
 We also created two wordclouds that represent the most positive and negative phrases' coefficients from the model:
+
+![](./img/dc_wordcloud.png)
+
+We can see here that the terms that are most positive include ‘friendly staff’, ‘delicious’, ‘great customer service’, ‘great food’. This indicates that the important features for customer’s satisfaction is staff, food taste, and service.
+
+The terms that are most negative include ‘minutes’, ‘over priced’, ‘bland’, ‘food was ok’, ‘nothing special’. This suggests that negative reviews are driven by long wait times, overpriced food, bad food taste, an experience that isn’t deemed as anything special.
+
 
 ```python
 vocabulary_ngram = cvModel.vocabulary
